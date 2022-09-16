@@ -1,0 +1,301 @@
+---
+title: "Chap_02"
+author: "Leticia"
+date: '2022-09-15'
+output: html_document
+---
+#Libraries
+```{r setup, include=FALSE}
+library(fpp3)
+library(lubridate) #use period() for more complicated datasets - more than 1 ts column
+library(GGally)
+```
+
+#2.1 Data - tsibble
+
+Create a tsibbel object for time series, remember to set up the index, the time series variable.
+```{r}
+y <- tsibble(Year = 2015 : 2019,
+             Observation = c(123, 39, 78, 52, 110),
+             index = Year)
+
+```
+
+
+##Olympic Running
+```{r}
+olympic_running %>% distinct(Sex) #Shows the categories
+```
+
+##Monthly dataset
+```{r}
+a10 <- PBS %>% 
+  filter(ATC2 == "A10") %>% #Rows
+  select(Month, Concession, Type, Cost) %>% #Columns 
+  summarise(TotalC = sum(Cost)) %>% 
+  mutate(Cost = TotalC/1e6) 
+
+```
+
+##Reading csv turn into tsibble
+```{r}
+prison <- readr::read_csv("https://OTexts.com/fpp3/extrafiles/prison_population.csv")
+prison <- prison %>%
+  mutate(Quarter = yearquarter(Date)) %>%
+  select(-Date) %>%
+  as_tsibble(key = c(State, Gender, Legal, Indigenous),
+             index = Quarter)
+
+prison
+```
+
+
+#2.2 Plot - autoplot()
+##melsyd_economy plot
+```{r}
+melsyd_economy <- ansett %>%
+   filter(Airports == "MEL-SYD", Class == "Economy") %>%
+   mutate(Passengers = Passengers/1000)
+ autoplot(melsyd_economy, Passengers) + #autoplot is created for time series
+   labs(title = "Ansett airlines economy class",
+        subtitle = "Melbourne-Sydney",
+        y = "Passengers ('000)")
+
+
+melsyd_economy
+```
+##a10 plot
+```{r}
+autoplot(a10, Cost)+
+  labs(y= "$ (millions)",
+       title = "Australian antidiabetic drugs sales")
+```
+
+#2.3 Time series patterns
+
+Patterns can be: Trend, seasonal and Cyclic.
+
+## ggseason
+```{r}
+a10 %>%
+  gg_season(Cost, labels = "both") + #note 
+  labs(y = "$ (millions)",
+       title = "Seasonal plot: Antidiabetic drug sales")
+```
+
+##vic_elec
+```{r}
+vic_elec %>% gg_season(Demand, period = "day") +
+   theme(legend.position = "none") #+
+#   labs(y="MWh", title="Electricity demand: Victoria")
+
+```
+```{r}
+vic_elec %>% gg_season(Demand, period = "week") +
+  theme(legend.position = "none") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+```
+
+```{r}
+vic_elec %>% gg_season(Demand, period = "year") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+```
+#2.5 Subseries
+```{r}
+a10 %>%
+  gg_subseries(Cost) + #subseries already identified the year and month
+  labs(
+    y = "$ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+
+#blue lines - means
+```
+##tourism
+```{r}
+holidays <- tourism %>%
+  filter(Purpose == "Holiday") %>% 
+  group_by(State) %>%
+  summarise(Trips = sum(Trips))
+  
+  holidays
+```
+##autoplot tourism
+```{r}
+autoplot(holidays, Trips) +
+  labs(y = "Overnight trips ('000)",
+       title = "Australian domestic holidays")
+```
+##season tourism
+```{r}
+gg_season(holidays, Trips) +
+  labs(y = "Overnight trips ('000)",
+       title = "Australian domestic holidays")
+```
+##Series for tourism
+```{r}
+holidays %>%
+  gg_subseries(Trips) +
+  labs(y = "Overnight trips ('000)",
+       title = "Australian domestic holidays")
+```
+#2.6 Scatterplots
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  autoplot(Demand) +
+  labs(y = "GW",
+       title = "Half-hourly electricity demand: Victoria")
+
+```
+
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  autoplot(Temperature) +
+  labs(
+    y = "Degrees Celsius",
+    title = "Half-hourly temperatures: Melbourne, Australia"
+  )
+```
+##Correlation Plot
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  ggplot(aes(x = Temperature, y = Demand)) +
+  geom_point() +
+  labs(x = "Temperature (degrees Celsius)",
+       y = "Electricity demand (GW)")
+```
+##Scatterplot Matrices
+```{r}
+visitors <- tourism %>%
+  group_by(State) %>%
+  summarise(Trips = sum(Trips))
+visitors %>%
+  ggplot(aes(x = Quarter, y = Trips)) +
+  geom_line() +
+  facet_grid(vars(State), scales = "free_y") +
+  labs(title = "Australian domestic tourism",
+       y= "Overnight trips ('000)")
+```
+
+##Relationships
+```{r}
+visitors %>%
+  pivot_wider(values_from=Trips, names_from=State) %>%
+  GGally::ggpairs(columns = 2:9)
+
+```
+
+#2.7 Lag plots
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 2000)
+recent_production %>%
+  gg_lag(Beer, geom = "point") +
+  labs(x = "lag(Beer, k)")
+```
+
+#2.8 Autocorrelation
+
+ACF is a function to calculate the correlation between lagged values of a time series. 
+
+```{r}
+recent_production %>% ACF(Beer, lag_max = 9)
+```
+```{r}
+recent_production %>%
+  ACF(Beer) %>%
+  autoplot() + labs(title="Australian beer production")
+```
+#2.9 White noise
+
+This looks like a residual plot. Those are the NO AUTOCORRELATION.
+
+```{r}
+set.seed(30)
+y <- tsibble(sample = 1:50, wn = rnorm(50), index = sample) #create a new data set with random numbers, index is also being determined.
+y %>% autoplot(wn) + labs(title = "White noise", y = "")
+```
+
+```{r}
+y %>%
+  ACF(wn) %>%
+  autoplot() + labs(title = "White noise")
+```
+The black lines doesn't touch the blue dashed lines and the ACF lies within ±2/√T where T is the length of the time. T=50 in this case = ±0.28. If its more than 5%, it could not be white noise.
+2.10 Exercise 13
+
+```{r}
+dgoog <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2018) %>%
+  mutate(trading_day = row_number()) %>%
+  update_tsibble(index = trading_day, regular = TRUE) %>%
+  mutate(diff = difference(Close))
+
+dgoog
+```
+##a) 
+The code was changed from date to a sequential number.
+
+##b) ACF
+```{r}
+dgoog %>% ACF(diff, lag_max = 12) #monthly?
+
+
+```
+##c) white noise?
+
+Yes, more than 95% of the black lines is inside the blue dashed lines and ±2/√T= ± 0.57. But I dont know if T is corrected.
+
+```{r}
+a=2/sqrt(12)
+a
+```
+
+
+```{r}
+dgoog %>%
+  ACF(diff) %>%
+  autoplot() + labs(title="Google Stocks")
+```
+
+
+#2.12 Questions
+
+This tsibble contains 64 separate time series corresponding to the combinations of the 8 states, 2 genders, 2 legal statuses and 2 indigenous statuses. Each of these series is 48 observations in length, from 2005 Q1 to 2016 Q4. #I dont understand how they come up with this numbers.
+
+Is the autoplot created based on ggplot2?
+
+I don't get difference between cyclic and seasonal. 2.3
+
+vic_elec has this type of data s3: posix
+
+How to decide the type of pattern? Based on researcher knowledge? 2.5 a10 example
+
+I dont see where holiday is in the tourism dataset - Got it!
+
+I didn't understand the Lag plot - Lagged in production? why is this important? From this on I dont get it.
+
+Lag_max =9 is the number of Quarters? what is k? I dont understand the correlation graph.
+
+I still can not see the prediction, should we supose to know by now?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
