@@ -1,0 +1,31 @@
+---
+title: "TG_Chapter2"
+author: "Thanos Gentimis"
+date: "2022-09-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("fpp3")
+library("readxl")
+```
+
+## Simple Stuff
+
+My first tibble
+
+```{r}
+y <- tsibble(
+  Year = 2015:2019,
+  Observation = c(123, 39, 78, 52, 110),
+  index = Year
+)
+```
+
+
+```{r}
+df1=read_excel("Feeding_log.xlsx")
+df1
+```
+
