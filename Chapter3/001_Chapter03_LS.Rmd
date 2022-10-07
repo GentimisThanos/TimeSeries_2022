@@ -1,30 +1,393 @@
 ---
-title: "001_Chapter03_LS"
+title: "Chapter 3 Time series decomposition"
 author: "Leticia"
 date: '2022-10-06'
 output: html_document
 ---
 
+Analyse trend and cycles 
+
+  - Calendar adjustments
+  - Population adjustments
+  - Inflation adjustments
+  - Mathematical transformations
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+library(slider)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
+# Transformation of GDP to GDP per/capita
+## Population adjustments
 ```{r cars}
-summary(cars)
+global_economy %>%
+  filter(Country == "Australia") %>%
+  autoplot(GDP/Population) +
+  labs(title= "GDP per capita", y = "$US")
+```
+##  Inflation adjustments
+```{r}
+print_retail <- aus_retail %>%
+  filter(Industry == "Newspaper and book retailing") %>%
+  group_by(Industry) %>%
+  index_by(Year = year(Month)) %>%
+  summarise(Turnover = sum(Turnover)) #The summation is by year
+
+print_retail
+```
+```{r}
+aus_economy <- global_economy %>%
+  filter(Code == "AUS")
+aus_economy
 ```
 
-## Including Plots
+```{r}
+print_retail %>%
+  left_join(aus_economy, by = "Year") %>% #joining with the other table by year
+  mutate(Adjusted_turnover = Turnover / CPI * 100) %>% #Calculating the turnover (volume de negocios)
+  pivot_longer(c(Turnover, Adjusted_turnover),
+               values_to = "Turnover") %>% #IDK what this is doing
+  mutate(name = factor(name,
+         levels=c("Turnover","Adjusted_turnover"))) %>% #has the same value - turnover and adj_turnover, why? Not really, plot will show
+  ggplot(aes(x = Year, y = Turnover)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") +
+  labs(title = "Turnover: Australian print media industry",
+       y = "$AU")
+```
+```{r}
+lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero) #This ill choose lambda
+aus_production %>%
+  autoplot(box_cox(Gas, lambda)) +
+  labs(y = "",
+       title = latex2exp::TeX(paste0(
+         "Transformed gas production with $\\lambda$ = ",
+         round(lambda,2))))
+```
+# 3.2 Time Series components
 
-You can also embed plots, for example:
+Example: Employment in the US retail sector
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+autoplot(us_retail_employment, Employed) +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+dcmp <- us_retail_employment %>%
+  model(stl = STL(Employed))
+components(dcmp) #Dable - a decomposition table
+
+```
+
+```{r}
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(Employed, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") + #the y=trend is to add the orange line? Yes. Nice!
+  labs(
+    y = "Persons (thousands)",
+    title = "Total employment in US retail"
+  )
+```
+
+## Plot all the components by the time frame
+```{r}
+components(dcmp) %>% autoplot() #This code understand to plot all the variables in just one plot, it didn't need the facet
+```
+## Seasonally adjusted data
+```{r}
+components(dcmp) %>%
+  as_tsibble() %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y=season_adjust), colour = "#0072B2") + #another type of adjustment
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+
+# 3.3 Moving averages
+ 
+m-MA, Moving average in order of m. It considers the 2 values after and two values before the average that you want.
+
+This is smooth the curves in the graphs. It takes a period of time and returns the mean for this period (season). 
+
+```{r}
+global_economy %>%
+  filter(Country == "Australia") %>%
+  autoplot(Exports) +
+  labs(y = "% of GDP", title = "Total Australian exports")
+
+```
+## "Slidding" 5-MA☺ 
+```{r}
+aus_exports <- global_economy %>%
+  filter(Country == "Australia") %>%
+  mutate(
+    `5-MA` = slider::slide_dbl(Exports, mean,
+                .before = 2, .after = 2, .complete = TRUE) # It can be 5,7,9 ... assumption: m = 2k+1
+  ) #Creating de column with th moving average calculation
+```
+
+
+```{r}
+aus_exports %>%
+  autoplot(Exports) +
+  geom_line(aes(y = `5-MA`), colour = "#D55E00") + #Is this using a column or it's a formula of seasonal behavior?
+  labs(y = "% of GDP",
+       title = "Total Australian exports") +
+  guides(colour = guide_legend(title = "series")) #It excludes the missing values - first to and last two
+```
+
+## Moving averages of moving averages
+```{r}
+beer <- aus_production %>%
+  filter(year(Quarter) >= 1992) %>%
+  select(Quarter, Beer)
+beer_ma <- beer %>%
+  mutate(
+    `4-MA` = slider::slide_dbl(Beer, mean,
+                .before = 1, .after = 2, .complete = TRUE),
+    `2x4-MA` = slider::slide_dbl(`4-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+```
+## Estimating the trend-cycle with seasonal data
+
+Example: Employment in the US retail sector
+
+```{r}
+us_retail_employment_ma <- us_retail_employment %>%
+  mutate(
+    `12-MA` = slider::slide_dbl(Employed, mean,
+                .before = 5, .after = 6, .complete = TRUE),
+    `2x12-MA` = slider::slide_dbl(`12-MA`, mean,
+                .before = 1, .after = 0, .complete = TRUE)
+  )
+us_retail_employment_ma %>%
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y = `2x12-MA`), colour = "#D55E00") +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
+# 3.4 Classical decomposition
+
+Assumption: The seasonal component is constant from year to year. # No Covid data included.
+
+## Additive decomposition
+```{r}
+us_retail_employment %>%
+  model(
+    classical_decomposition(Employed, type = "additive")
+  ) %>%
+  components() %>%
+  autoplot() +
+  labs(title = "Classical additive decomposition of total
+                  US retail employment")
+
+```
+## Multiplicative decomposition
+Change the subtraction for divisions.
+
+# 3.5 Methods used by official statistics agencies
+STL - classical decomposition (additive)
+X_13ARIMA_SEATS multiplicative decomposition
+
+##X_11
+
+```{r}
+x11_dcmp <- us_retail_employment %>%
+  model(x11 = X_13ARIMA_SEATS(Employed ~ x11())) %>% #X_!#ARIMA_SEATS is the decomposition method - x11()?
+  components()
+autoplot(x11_dcmp) +
+  labs(title =
+    "Decomposition of total US retail employment using X-11.")
+```
+US retail employment: the original data (grey), the trend-cycle component (orange) and the seasonally adjusted data (barely visible in blue).
+```{r}
+x11_dcmp %>%
+  ggplot(aes(x = Month)) +
+  geom_line(aes(y = Employed, colour = "Data")) +
+  geom_line(aes(y = season_adjust,
+                colour = "Seasonally Adjusted")) +
+  geom_line(aes(y = trend, colour = "Trend")) +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail") +
+  scale_colour_manual(
+    values = c("gray", "#0072B2", "#D55E00"),
+    breaks = c("Data", "Seasonally Adjusted", "Trend")
+  )
+```
+
+Seasonal sub-series plot of the seasonal component from the X-11 method applied to total US retail employment.
+```{r}
+x11_dcmp %>%
+  gg_subseries(seasonal)
+```
+
+## SEATS method
+Seasonal Extraction in ARIMA Time Series
+
+```{r}
+seats_dcmp <- us_retail_employment %>%
+  model(seats = X_13ARIMA_SEATS(Employed ~ seats())) %>%
+  components()
+autoplot(seats_dcmp) +
+  labs(title =
+    "Decomposition of total US retail employment using SEATS")
+```
+
+# 3.6 STL decomposition
+Seasonal and Trend decomposition using Loess - Here you have more control of the parameters, you can actually set up values for season and cycles.
+```{r}
+us_retail_employment %>%
+  model(
+    STL(Employed ~ trend(window = 7) +
+                   season(window = "periodic"),
+    robust = TRUE)) %>%
+  components() %>%
+  autoplot()
+```
+
+
+ 
+# Exersices 
+## 2. For each of the following series, make a graph of the data. If transforming seems appropriate, do so and describe the effect.
+
+- United States GDP from global_economy.
+
+```{r Population adjustments}
+US_GDP <- global_economy %>% 
+  filter(Country == "United States") %>% 
+  select(c(Country, Year, Population, GDP)) %>% 
+autoplot(GDP/Population) + 
+  labs(x="Year", y="GPD per capita")
+US_GDP
+```
+- Slaughter of Victorian “Bulls, bullocks and steers” in aus_livestock
+```{r}
+slaughter <- aus_livestock %>% 
+  filter(Animal=="Bulls, bullocks and steers") %>% 
+  group_by(Animal) %>%
+  index_by(Year = year(Month)) %>%
+  summarise(Count = sum(Count)) %>% 
+    autoplot(Count/1000) + labs (y= "Bulls, bullocks and steers (x1000)",
+                                 x= "Years")
+slaughter
+```
+- Victorian Electricity Demand from vic_elec
+```{r}
+vic <- vic_elec %>% 
+  index_by(Date) %>%
+  summarise(Demand = sum(Demand)) %>% 
+  model(stl = STL(Demand)) %>% 
+  components() %>% 
+  autoplot()
+vic
+```
+
+
+- Gas production from aus_production
+```{r}
+gas_prod <- aus_production %>% 
+  index_by(Quarter) %>%
+  summarise(Gas = sum(Gas)) %>% 
+  model(stl = STL(Gas)) %>% 
+  components() %>% 
+  autoplot()
+gas_prod
+  
+  
+```
+
+## 7. Consider the last five years of the Gas data from aus_production.
+
+
+7.1 Plot the time series. Can you identify seasonal fluctuations and/or a trend-cycle?
+7.2 Use classical_decomposition with type=multiplicative to calculate the trend-cycle and seasonal indices.
+7.3 Do the results support the graphical interpretation from part a?
+Yes.
+
+```{r}
+gas <- tail(aus_production, 5*4) %>% select(Gas) %>% 
+  model(classical_decomposition(Gas, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() +
+  labs(title = "Gas prodution in Australia")
+
+gas
+```
+7.4 Compute and plot the seasonally adjusted data.
+
+Adjust with what parameter?
+
+```{r}
+lambda <- aus_production %>%
+  features(Gas, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+gas <- tail(aus_production, 5*4) %>% select(Gas) %>%
+  model(classical_decomposition(Gas, type = "multiplicative")) %>%
+  components() %>%
+  autoplot(box_cox(Gas, lambda)) +
+  labs(y = "",
+       title = latex2exp::TeX(paste0(
+         "Transformed gas production with $\\lambda$ = ",
+         round(lambda,2))))
+  
+gas
+
+```
+7.6 Change one observation to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
+
+```{r}
+new_row <- c("300", "2005 Q2")
+gas_out <- tail(aus_production, 5*4) %>% select(Gas)
+
+
+gas_out_new <- rbind(gas_out, new_row)  
+```
+
+```{r}
+data2 <- gas_out                              # Replicate data
+data2[nrow(gas_out) + 1, ] <- new_row         # Add new row
+data2 
+```
+
+7.7 Does it make any difference if the outlier is near the end rather than in the middle of the time series?
+
+## Questions
+1. What is pivot_longer doing (line 47)
+2. Formula of BoxCox
+3. What is tsibble? A table? (line 90)
+4. Does this transformations are based/same on the exponential regression? 
+5. Not sure about the remainder graph
+6. Is this using a column or it's a formula of seasonal behavior? line(137)
+7. I am not sure about the difference between Multiplicative and additive decomposition in a practical point of view. I understand the difference in the formula.
+
+8. I didn't understand X11. (Classical method in Canada)
+9. Different components in the last column: random, irregular and remainder.
+10. The example in X_11 (line 205) has the same function as X_13ARIMA_SEATS (line 238)
+11. I cant tell which one we should use for each situation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
