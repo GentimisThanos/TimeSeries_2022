@@ -7,24 +7,71 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
 ```
 
-## R Markdown
+#Chapter 3: Time Series Deposition
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Can think of a time series as comprising three components: a trend-cycle component, a seasonal component, and a remainder component (containing anything else in the time series).
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#3.1 Transformation and Adjustments
 
-```{r cars}
-summary(cars)
+Four kinds of adjustments: calendar adjustments, population adjustments, inflation adjustments and mathematical transformations.
+Purpose of adjustments and transformations is to simplify the patterns in the historical data by removing known sources of variation, or by making the pattern more consistent.
+
+Calendar adjustment:
+- can be variations due to calculating my month/season, so eliminate variation by calculating by day, etc.
+
+Population adjustment:
+- For most data that are affected by population changes, it is best to use per-capita data rather than the totals.
+```{r}
+global_economy %>%
+  filter(Country == "Australia") %>%
+  autoplot(GDP/Population) +
+  labs(title= "GDP per capita", y = "$US")
+```
+  
+# Exercise 7
+```{r}
+gas <- tail(aus_production, 5*4) %>% select(Gas)
+autoplot(gas)
+classical_decomposition(gas, type = "multiplicative")
 ```
 
-## Including Plots
+# 3.1 : 
 
-You can also embed plots, for example:
+-Are you trying to make these adjustments so you can view the data without the obvious trend?
+-Why do we do transformations?
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+# 3.2:
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+-Did i miss something? What does it mean level of time series?
+-what does mean by decomposition
+  
+--When the variation in the seasonal pattern, or the variation around the trend-cycle, appears to be proportional to the level of the time series, then a multiplicative decomposition is more appropriate. 
+
+--An alternative to using a multiplicative decomposition is to first transform the data until the variation in the series appears to be stable over time, then use an additive decomposition. 
+
+--STL mean seasonal and trend
+
+--If the variation due to seasonality is not of primary interest, the seasonally adjusted series can be useful. 
+
+--Seasonally adjusted series contain the remainder component as well as the trend-cycle.
+
+# 3.3
+
+--The first step in a classical decomposition is to use a moving average method to estimate the trend-cycle
+--moving averages takes an average of a group of every few numbers in the data
+  --the bigger the grou of numbers, the smoother the line
+--It is possible to apply a moving average to a moving average. One reason for doing this is to make an even-order moving average symmetric.
+--an odd order MA should be followed by an odd order MA.
+--A major advantage of weighted moving averages is that they yield a smoother estimate of the trend-cycle.
+
+-can explain the combo of using trend cycle and seasonal data
+
+
+# 3.4
+
+-how is multiplicative decomposition broken down in to?
+
+-
