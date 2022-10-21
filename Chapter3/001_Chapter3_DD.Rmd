@@ -41,22 +41,26 @@ classical_decomposition(gas, type = "multiplicative")
 # 3.1 : 
 
 -Are you trying to make these adjustments so you can view the data without the obvious trend?
--Why do we do transformations?
+-Why do we do transformations?-- do algebra to get it into a format thats easier to understand then once we make our interpretation, we transform back, data doesnt change
+
 
 # 3.2:
 
 -Did i miss something? What does it mean level of time series?
--what does mean by decomposition
+-what does mean by decomposition--break into trends, periodic behavior
   
 --When the variation in the seasonal pattern, or the variation around the trend-cycle, appears to be proportional to the level of the time series, then a multiplicative decomposition is more appropriate. 
 
 --An alternative to using a multiplicative decomposition is to first transform the data until the variation in the series appears to be stable over time, then use an additive decomposition. 
 
---STL mean seasonal and trend
+--STL mean seasonal and trend, similar to additive decomp, but STL is more flexible
 
 --If the variation due to seasonality is not of primary interest, the seasonally adjusted series can be useful. 
 
 --Seasonally adjusted series contain the remainder component as well as the trend-cycle.
+
+
+-- remainder gives u an estimate of the maximum error u get when u try to make predictions
 
 # 3.3
 
@@ -67,11 +71,15 @@ classical_decomposition(gas, type = "multiplicative")
 --an odd order MA should be followed by an odd order MA.
 --A major advantage of weighted moving averages is that they yield a smoother estimate of the trend-cycle.
 
+--11-MA is average of previous 5 units, later 5 units, and today
+--MA does lose some data.
+--why do it? bc some are too jagged and hard to analyze, and thats how u get trend
 -can explain the combo of using trend cycle and seasonal data
 
+--weighted MA: the weight of the points away from target point is getting smaller
 
 # 3.4
 
--how is multiplicative decomposition broken down in to?
+--if dont know which one to use (additive or multiplicative), try both and use the one with the smallest remainder
 
 -
