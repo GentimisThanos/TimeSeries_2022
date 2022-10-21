@@ -1,0 +1,28 @@
+#======
+F_10 <- pbinom(q=10, size=20, prob=0.35)
+F_9 <- pbinom(q=9, size=20, prob=0.35)
+P_10 <- F_10 - F_9
+f_10 <- dbinom(x=10, size=20, prob=0.35)
+FC_10 <- 1 - (F_10)
+FC_10 <- pbinom(q=10, size=20, prob=0.35, lower=FALSE)
+P_8_10 <- pbinom(q=10, size=20, prob=0.35) - pbinom(q=7, size=20, prob=0.35)
+
+f_8 = dbinom(x=8, size=20, prob=0.35)
+f_9 = dbinom(x=9, size=20, prob=0.35)
+f_10 = dbinom(x=10, size=20, prob=0.35)
+(P_8_10=f_8 + f_9 + f_10)
+#=======
+F_3 = ppois(q=3, lambda=1)
+FC_3 = 1 - ppois(q=3, lambda=1)
+#=======
+
+F_115 <- pnorm(q=115, mean=100, sd=15)
+F_85 <- pnorm(q=85, mean=100, sd=15)
+P_85_115 <- F_115 - F_85
+
+F_130 <- pnorm(q=130, mean=100, sd=15)
+F_70 <- pnorm(q=70, mean=100, sd=15)
+P_70_130 <- F_130-F_70
+
+FC_132 <- 1-pnorm(q=132, mean=100, sd=15)
+FC_132 <- pnorm(q=132, mean=100, sd=15, lower=FALSE)
