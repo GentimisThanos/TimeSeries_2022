@@ -193,16 +193,19 @@ visitors %>%
 recent_production <- aus_production %>%
   filter(year(Quarter) >= 2000)
 recent_production %>%
-  gg_lag(Beer, geom = "point") +
+  gg_lag(Beer, geom = "point", lags = 1:16) +
   labs(x = "lag(Beer, k)")
 ```
 
 #2.8 Autocorrelation
 
+If X, Y are two sets of numbers with a 1-1 correspondence between them, then we define the $$cor(X,Y)=\frac{\sum (x-\overline{x})(y-\overline{y})}{\sqrt{\sum (x-\overline{x})^2 * \sum(y-\overline{y})^2}}$$
+
+
 ACF is a function to calculate the correlation between lagged values of a time series. 
 
 ```{r}
-recent_production %>% ACF(Beer, lag_max = 9)
+recent_production %>% ACF(Beer, lag_max = 9) #acf autocorrelation function
 ```
 ```{r}
 recent_production %>%
@@ -228,6 +231,13 @@ The black lines doesn't touch the blue dashed lines and the ACF lies within ±2/
 2.10 Exercise 13
 
 ```{r}
+l <- gafa_stock
+levels(as.factor(l$Symbol))
+
+```
+
+
+```{r}
 dgoog <- gafa_stock %>%
   filter(Symbol == "GOOG", year(Date) >= 2018) %>%
   mutate(trading_day = row_number()) %>%
@@ -241,7 +251,9 @@ The code was changed from date to a sequential number.
 
 ##b) ACF
 ```{r}
-dgoog %>% ACF(diff, lag_max = 12) #monthly?
+dgoog %>% ACF(diff, lag_max = 100) %>% 
+  autoplot() +
+  labs(title="One day difference closing") #monthly?
 
 
 ```
@@ -263,12 +275,12 @@ dgoog %>%
 
 
 #2.12 Questions
+sibble c
+This tontains 64 separate time series corresponding to the combinations of the 8 states, 2 genders, 2 legal statuses and 2 indigenous statuses. Each of these series is 48 observations in length, from 2005 Q1 to 2016 Q4. #I dont understand how they come up with this numbers.
 
-This tsibble contains 64 separate time series corresponding to the combinations of the 8 states, 2 genders, 2 legal statuses and 2 indigenous statuses. Each of these series is 48 observations in length, from 2005 Q1 to 2016 Q4. #I dont understand how they come up with this numbers.
+Is the autoplot created based on ggplot2? Yes, 100%. Shortcut for timeseries.
 
-Is the autoplot created based on ggplot2?
-
-I don't get difference between cyclic and seasonal. 2.3
+I don't get difference between cyclic and seasonal. 2.3 got it
 
 vic_elec has this type of data s3: posix
 
