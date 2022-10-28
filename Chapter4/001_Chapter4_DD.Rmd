@@ -1,0 +1,210 @@
+---
+title: 'Chapter 4: Time Series Features'
+author: "Dina D."
+date: "2022-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+```
+
+# 4.1: Some simple statistics
+
+Numerical summary computed from a time series is a feature. Example: mean, min, max. Can be computed using features().
+```{r}
+tourism %>%
+  features(Trips, list(mean = mean)) %>%
+  arrange(mean)
+```
+
+A common short summary of a data set is to compute five summary statistics: the minimum, first quartile, median, third quartile and maximum. Quartiles() divide data into four equal-size sections, each containing 25% of the data.
+```{r}
+tourism %>% features(Trips, quantile)
+```
+
+min is 0% and m ax is 100%
+
+# 4.1: ACF  features
+
+Autocorrelations can be considered features. We can also summarize the autocorrelations to produce new features. Example, the sum of the first ten squared autocorrelation coefficients is a useful summary of how much autocorrelation there is in a series.Can also compute autocorrelations of the changes in the series between periods and create a new series using the differences of the data.
+    --we can compute autocorrelations again on the new time series made by the differences of the autocorrelation?
+
+Can compute seasonal differences of a series. Example: compute the difference between consecutive Januaries, consecutive Februaries. This let's us see how the series in canging by the year.
+
+feat_acf() computes these:
+    -the first autocorrelation coefficient from the original data;
+    -the sum of squares of the first ten autocorrelation coefficients from the original data;
+    -the first autocorrelation coefficient from the differenced data;
+    -the sum of squares of the first ten autocorrelation coefficients from the differenced data;
+    -the first autocorrelation coefficient from the twice differenced data;
+    -the sum of squares of the first ten autocorrelation coefficients from the twice differenced data;
+    -For seasonal data, the autocorrelation coefficient at the first seasonal lag is also returned.
+```{r}
+tourism %>% features(Trips, feat_acf)
+```
+    --Why are some of those acf useful? Like what do they tell us?
+
+# 4.3: STL features
+
+A time series decomposition can be used to measure the strength of trend and seasonality in a time series. Tt is the smoothed trend component, St is the seasonal component and Rt is a remainder component.For strongly trended data, the seasonally adjusted data should have much more variation than the remainder component. Therefore Var(Rt)/Var(Tt+Rt) should be relatively small.
+
+For data with little or no trend, FT=max(0,1−Var(Rt)Var(Tt+Rt)). This will give a measure of the strength of the trend between 0 and 1.Same question can be used for detrended data rather than the seasonally adjusted data: FS=max(0,1−Var(Rt)Var(St+Rt)).A series with seasonal strength FS close to 0 exhibits almost no seasonality.
+```{r}
+tourism %>%
+  features(Trips, feat_stl)
+```
+We can then use these features in plots to identify what type of series are heavily trended and what are most seasonal.
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  ggplot(aes(x = trend_strength, y = seasonal_strength_year,
+             col = Purpose)) +
+  geom_point() +
+  facet_wrap(vars(State))
+```
+holiday series are most seasonal.strongest trends tend to be in Western Australia and Victoria. 
+```{r}
+tourism %>%
+  features(Trips, feat_stl) %>%
+  filter(
+    seasonal_strength_year == max(seasonal_strength_year)
+  ) %>%
+  left_join(tourism, by = c("State", "Region", "Purpose")) %>%
+  ggplot(aes(x = Quarter, y = Trips)) +
+  geom_line() +
+  facet_grid(vars(State, Region, Purpose))
+```
+feat_stl() has even more features.
+
+-seasonal_peak_year indicates the timing of the peaks — which month or quarter contains the largest seasonal component. This tells us something about the nature of the seasonality.
+-seasonal_trough_year indicates the timing of the troughs — which month or quarter contains the smallest seasonal component.
+-spikiness measures the prevalence of spikes in the remainder component Rt of the STL decomposition.
+-linearity measures the linearity based on the coefficient of a linear regression applied to the trend component.
+-curvature measures the curvature of the trend component based on the coefficient from an orthogonal quadratic regression.
+-stl_e_acf1 is the first autocorrelation coefficient of the remainder series.
+-stl_e_acf10 is the sum of squares of the first ten autocorrelation coefficients of the remainder series.
+
+# 4.4: Other features
+
+feasts package computes only a few dozen features 
+-then it discusses te features in the feasts package.From "long memory" to entropy to wite noise to stationary/nonstationary to shifts etc.
+
+# 4.5: Exploring Australian tourism data
+
+All of the features included in the feasts package can be computed in one line 
+```{r}
+tourism_features <- tourism %>%
+  features(Trips, feature_set(pkgs = "feasts"))
+tourism_features
+```
+This gives 48 features for every combination of (Region, State and Purpose).
+Can plot one feature against another and can also do pairwise plots of groups of features. Example: we show all features that involve seasonality, along with the Purpose variable.
+```{r}
+library(glue)
+tourism_features %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+
+--Having trouble distinguishing all the plots
+
+A useful way to handle many more variables is to use a dimension reduction technique. This gives linear combinations of variables that explain the most variation in the original data. We can compute the principal components of the tourism features:
+```{r}
+library(broom)
+pcs <- tourism_features %>%
+  select(-State, -Region, -Purpose) %>%
+  prcomp(scale = TRUE) %>%
+  augment(tourism_features)
+pcs %>%
+  ggplot(aes(x = .fittedPC1, y = .fittedPC2, col = Purpose)) +
+  geom_point() +
+  theme(aspect.ratio = 1)
+```
+Each point on (above ^) represents one series and its location on the plot is based on all 48 features. The first principal component (.fittedPC1) is the linear combination of the features which explains the most variation in the data. The second principal component (.fittedPC2) is the linear combination which explains the next most variation in the data, while being uncorrelated with the first principal component. 
+    --need more explanation on principle component
+
+plot also allows us to identify anomalous time series — series which have unusual feature combinations. 
+```{r}
+outliers <- pcs %>%
+  filter(.fittedPC1 > 10) %>%
+  select(Region, State, Purpose, .fittedPC1, .fittedPC2)
+outliers
+
+outliers %>%
+  left_join(tourism, by = c("State", "Region", "Purpose")) %>%
+  mutate(
+    Series = glue("{State}", "{Region}", "{Purpose}",
+                  .sep = "\n\n")
+  ) %>%
+  ggplot(aes(x = Quarter, y = Trips)) +
+  geom_line() +
+  facet_grid(Series ~ ., scales = "free") +
+  labs(title = "Outlying time series in PC space")
+```
+We can speculate why these series are identified as unusual.
+    -Holiday visits to the south coast of NSW is highly seasonal but has almost no trend, whereas most holiday destinations in Australia show some trend over time.
+    -Melbourne is an unusual holiday destination because it has almost no seasonality, whereas most holiday destinations in Australia have highly seasonal tourism.
+    -The north western corner of Western Australia is unusual because it shows an increase in business tourism in the last few years of data, but little or no seasonality.
+    -The south western corner of Western Australia is unusual because it shows both an increase in holiday tourism in the last few years of data and a high level of seasonality.
+
+
+# Exercise 2:
+
+```{r}
+library(glue)
+```
+
+
+```{r}
+tourism_features %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+
+```{r}
+holiday<-filter(tourism, Purpose=="Holiday")
+tourism_features2 <- holiday %>%
+  features(Trips, feature_set(pkgs = "feasts"))
+library(glue)
+tourism_features2 %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+
+
+
+
+
+
+
+
+
+
+
+
