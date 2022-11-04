@@ -335,22 +335,23 @@ lambda <- aus_production %>%
 gas <- tail(aus_production, 5*4) %>% select(Gas) %>%
   model(classical_decomposition(Gas, type = "multiplicative")) %>%
   components() %>%
-  autoplot(box_cox(Gas, lambda)) +
+  autoplot(box_cox(Gas, lambda)) + # Adjusting here
   labs(y = "",
        title = latex2exp::TeX(paste0(
          "Transformed gas production with $\\lambda$ = ",
          round(lambda,2))))
   
 gas
-
 ```
+
+
 7.6 Change one observation to be an outlier (e.g., add 300 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
 
 ```{r}
 new_row <- c("300", "2005 Q2")
 gas_out <- tail(aus_production, 5*4) %>% select(Gas)
-
-
+aus_production[1,"Gas"]=300
+#Chapter two explains how to add the outlier 
 gas_out_new <- rbind(gas_out, new_row)  
 ```
 

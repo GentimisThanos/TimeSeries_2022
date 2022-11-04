@@ -146,18 +146,6 @@ tourism_features %>%
   GGally::ggpairs(mapping = aes(colour = Purpose))
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
 # Questions
 - How to identify the years on line 41
 - Hoe entropy and timeseries are related exactly? (lack of order or predictability; gradual decline into disorder)
