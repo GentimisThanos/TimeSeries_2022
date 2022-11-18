@@ -8,8 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(fpp3)
-library(forecast)
+#library(forecast)
 ```
+
 
 # Chapter 5: The forecaster's toolbox
 
@@ -24,7 +25,7 @@ First step: prepare data in right format
 This process may involve loading in data, identifying missing values, filtering the time series, and other pre-processing tasks.
 Packages like tsibble and tidyvers simplifies this step.
 
-Many models have data requirements like some need to be in time order or have have no missing values
+Many models have data requirements like some need to be in time order or have no missing values
 
 *This models GDP per capita over time
 ```{r}
@@ -70,6 +71,14 @@ fit %>%
   autoplot(gdppc) +
   labs(y = "$US", title = "GDP per capita for Sweden")
 ```
+```{r}
+fit2<-gdppc %>%
+  filter(Country == "Sweden") %>%
+  filter_index("1960"~"2015")
+fit2 %>% model(MEAN(fit2))
+```
+
+
 
 # 5.2: SOme forecasting methods
 

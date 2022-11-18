@@ -9,6 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(fpp3)
 ```
+Some chapter 3 notes:
+additive and multiplicative is bad for data with outliers, better to use STL. but additive and multiplicative are more rigid so have better predictions
+
+Ch 5: time series, model, fit the data, then forecast
 
 # 4.1: Some simple statistics
 
