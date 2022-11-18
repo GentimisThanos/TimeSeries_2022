@@ -25,9 +25,10 @@ gdppc %>%
   autoplot(GDP_per_capita) +
   labs(y = "$US", title = "GDP per capita for Sweden")
 ```
+
 ```{r}
 
-gdppc #%>%
+gdppc %>%
   filter(Country == "Bangladesh") %>%
   autoplot(GDP_per_capita) +
   labs(y = "$US", title = "GDP per capita for Bangladesh")
@@ -38,7 +39,7 @@ gdppc #%>%
 ```{r}
 # Re-index based on trading days
 gdppc %>%
-  filter(Country == "Bangladesh", year(Date) >= 1990) #%>%
+  filter(Country == "Bangladesh", year(Date) >= 1990) %>%
   mutate(day = row_number()) %>%
   update_tsibble(index = day, regular = TRUE)
 # Filter the year of interest
@@ -105,7 +106,7 @@ bricks
 Mean method
 
 ```{r}
-bricks %>% model(MEAN(Bricks))
+bricks %>% model(MEAN(Bricks))%>%forecast(h=4)
 autoplot(bricks)
 ```
 Naïve method
