@@ -1,0 +1,208 @@
+---
+title: "001_Chapter5_DD"
+author: "Dina D."
+date: "2022-11-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+#library(forecast)
+```
+
+
+# Chapter 5: The forecaster's toolbox
+
+
+# 5.1: A tidy forecasting workflow
+
+Process of producing forecasts:
+tidy->visualize->specify->estimate->evaluate->forecast
+                          
+              
+First step: prepare data in right format
+This process may involve loading in data, identifying missing values, filtering the time series, and other pre-processing tasks.
+Packages like tsibble and tidyvers simplifies this step.
+
+Many models have data requirements like some need to be in time order or have no missing values
+
+*This models GDP per capita over time
+```{r}
+gdppc <- global_economy %>%
+  mutate(GDP_per_capita = GDP / Population)
+```
+
+*Plotting gdppc
+```{r}
+gdppc %>%
+  filter(Country == "Sweden") %>%
+  autoplot(GDP_per_capita) +
+  labs(y = "$US", title = "GDP per capita for Sweden")
+```
+
+
+Next step after plotting is defining a model
+A linear trend model can be specified with
+```{r}
+TSLM(GDP_per_capita ~ trend())
+```
+
+Next step is training the model (estimate)
+```{r}
+fit <- gdppc %>%
+  model(trend_model = TSLM(GDP_per_capita ~ trend()))
+fit
+```
+
+Next step is check the model's performance (evaluate)
+
+Now we can produce a forecast.
+With an appropriate model specified, estimated and checked, it is time to produce the forecasts using forecast(). 
+The easiest way to use this function is by specifying the number of future observations to forecast. For example, forecasts for the next 10 observations can be generated using h = 10.
+```{r}
+fit %>% forecast(h = 3)
+```
+
+```{r}
+fit %>%
+  forecast(h = "3 years") %>%
+  filter(Country == "Sweden") %>%
+  autoplot(gdppc) +
+  labs(y = "$US", title = "GDP per capita for Sweden")
+```
+```{r}
+fit2<-gdppc %>%
+  filter(Country == "Sweden") %>%
+  filter_index("1960"~"2015")
+fit2 %>% model(MEAN(fit2))
+```
+
+
+
+# 5.2: SOme forecasting methods
+
+*The filter_index() function is a convenient shorthand for extracting a section of a time series.
+```{r}
+bricks <- aus_production %>%
+  filter_index("1970 Q1" ~ "2004 Q4") %>%
+  select(Bricks)
+```
+
+Mean method:
+-forecasts of all future values are equal to the average (or “mean”) of the historical data.
+```{r}
+bricks %>% model(MEAN(Bricks))
+```
+
+
+Naïve method:
+-set all forecasts to be the value of the last observation.
+-This method works remarkably well for many economic and financial time series.
+```{r}
+bricks %>% model(NAIVE(Bricks))
+```
+Because a naïve forecast is optimal when data follow a random walk, these are also called random walk forecasts and the RW() function can be used instead of NAIVE.
+
+Seasonal naïve method:
+-similar method is useful for highly seasonal data. In this case, we set each forecast to be equal to the last observed value from the same season (e.g., the same month of the previous year)
+- For example, with monthly data, the forecast for all future February values is equal to the last observed February value. With quarterly data, the forecast of all future Q2 values is equal to the last observed Q2 value
+```{r}
+bricks %>% model(SNAIVE(Bricks ~ lag("year")))
+```
+The lag() function is optional here as bricks is quarterly data and so a seasonal naïve method will need a one-year lag.
+
+
+Drift method:
+-drawing a line between the first and last observations, and extrapolating it into the future.
+```{r}
+bricks %>% model(RW(Bricks ~ drift()))
+```
+
+Example of all three methods shown in one plot:
+  Australian quarterly beer production:
+```{r}
+# Set training data from 1992 to 2006
+train <- aus_production %>%
+  filter_index("1992 Q1" ~ "2006 Q4")
+# Fit the models
+beer_fit <- train %>%
+  model(
+    Mean = MEAN(Beer),
+    `Naïve` = NAIVE(Beer),
+    `Seasonal naïve` = SNAIVE(Beer)
+  )
+# Generate forecasts for 14 quarters
+beer_fc <- beer_fit %>% forecast(h = 14)
+# Plot forecasts against actual values
+beer_fc %>%
+  autoplot(train, level = NULL) +
+  autolayer(
+    filter_index(aus_production, "2007 Q1" ~ .),
+    colour = "black"
+  ) +
+  labs(
+    y = "Megalitres",
+    title = "Forecasts for quarterly beer production"
+  ) +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+   Google’s daily closing stock price:
+```{r}
+# Re-index based on trading days
+google_stock <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2015) %>%
+  mutate(day = row_number()) %>%
+  update_tsibble(index = day, regular = TRUE)
+# Filter the year of interest
+google_2015 <- google_stock %>% filter(year(Date) == 2015)
+# Fit the models
+google_fit <- google_2015 %>%
+  model(
+    Mean = MEAN(Close),
+    `Naïve` = NAIVE(Close),
+    Drift = NAIVE(Close ~ drift())
+  )
+# Produce forecasts for the trading days in January 2016
+google_jan_2016 <- google_stock %>%
+  filter(yearmonth(Date) == yearmonth("2016 Jan"))
+google_fc <- google_fit %>%
+  forecast(new_data = google_jan_2016)
+# Plot the forecasts
+google_fc %>%
+  autoplot(google_2015, level = NULL) +
+  autolayer(google_jan_2016, Close, colour = "black") +
+  labs(y = "$US",
+       title = "Google daily closing stock prices",
+       subtitle = "(Jan 2015 - Jan 2016)") +
+  guides(colour = guide_legend(title = "Forecast"))
+```
+
+# 5.3: Fitted values and residuals
+
+-Each observation in a time series can be forecast using all previous observations. We call these fitted values
+- fitted values are often not true forecasts because any parameters involved in the forecasting method are estimated using all available observations in the time series, including future observations. 
+-When the estimate of c involves observations after time t, the fitted values are not true forecasts. On the other hand, naïve or seasonal naïve forecasts do not involve any parameters, and so fitted values are true forecasts in such cases.
+  ^- A little confused on understanding what these statements is saying
+
+
+The “residuals” in a time series model are what is left over after fitting a model. 
+-The residuals are equal to the difference between the observations and the corresponding fitted values
+
+The fitted values and residuals from a model can be obtained using the augment() function.
+```{r}
+augment(beer_fit)
+```
+
+ -   .fitted contains the fitted values;
+ -   .resid contains the residuals;
+ -   .innov contains the “innovation residuals” which, in this case, are identical to the regular residuals.
+
+Residuals are useful in checking whether a model has adequately captured the information in the data. For this purpose, we use innovation residuals.
+
+If patterns are observable in the innovation residuals, the model can probably be improved.
+
+
+
+
+
