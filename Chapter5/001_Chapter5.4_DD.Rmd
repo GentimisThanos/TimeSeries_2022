@@ -1,0 +1,105 @@
+---
+title: "DD_Chapter5.4"
+author: "Dina Dinh"
+date: "2023-02-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+```
+
+Innovation residuals uncorrelated and have zero mean otherwise they are biased.
+Adjusting for bias: if the residuals have mean m, then simply subtract m from all forecasts.
+
+Other useful properties innovation residuals can have constant variance "homoscedasticity" and normally distributed.
+^-these two make calculations easier.
+
+For stock market prices and indexes, the best forecasting method is often the naïve method. 
+**Naive method is when set all forecasts to be the value of the last observation.
+
+```{r}
+autoplot(google_2015, Close) +
+  labs(y = "$US",
+       title = "Google daily closing stock prices in 2015")
+```
+
+The residuals obtained from forecasting this series using the naïve method are:
+```{r}
+aug <- google_2015 |>
+  model(NAIVE(Close)) |>
+  augment()
+autoplot(aug, .innov) +
+  labs(y = "$US",
+       title = "Residuals from the naïve method")
+```
+The large positive residual is from price jump.
+
+Histogram of residuals:
+```{r}
+aug |>
+  ggplot(aes(x = .innov)) +
+  geom_histogram() +
+  labs(title = "Histogram of residuals")
+```
+Right tail seems a little too long for normal distribution.
+
+```{r}
+aug |>
+  ACF(.innov) |>
+  autoplot() +
+  labs(title = "Residuals from the naïve method")
+```
+Can see that the mean of the residuals is close to zero and no significant correlation(???) in the residual series. Time plot of the residual shows that variation of the residual stays much the same except for one outlier.
+
+Shortcut for producing these residual diagnostic graphs:
+```{r}
+google_2015 |>
+  model(NAIVE(Close)) |>
+  gg_tsresiduals()
+```
+
+
+(???) When we look at the ACF plot to see whether each spike is within the required limits, we are implicitly carrying out multiple hypothesis tests, each one with a small probability of giving a false positive. When enough of these tests are done, it is likely that at least one will give a false positive, and so we may conclude that the residuals have some remaining autocorrelation, when in fact they do not.
+
+Test whether the first ℓ autocorrelations are significantly different from what would be expected from a white noise process.
+A test for a group of autocorrelations is called a portmanteau test.
+
+```{r}
+aug |> features(.innov, box_pierce, lag = 10)
+#> # A tibble: 1 × 4
+#>   Symbol .model       bp_stat bp_pvalue
+#>   <chr>  <chr>          <dbl>     <dbl>
+#> 1 GOOG   NAIVE(Close)    7.74     0.654
+
+aug |> features(.innov, ljung_box, lag = 10)
+#> # A tibble: 1 × 4
+#>   Symbol .model       lb_stat lb_pvalue
+#>   <chr>  <chr>          <dbl>     <dbl>
+#> 1 GOOG   NAIVE(Close)    7.91     0.637
+```
+
+For both Q and Q∗, the results are not significant (i.e., the p-values are relatively large). Thus, we can conclude that the residuals are not distinguishable from a white noise series.
+
+Alternative approach for forecasting stocks is drift method.
+The tidy() function shows the one estimated parameter, the drift coefficient, measuring the average daily change observed in the historical data.
+```{r}
+fit <- google_2015 |> model(RW(Close ~ drift()))
+tidy(fit)
+#> # A tibble: 1 × 7
+#>   Symbol .model              term  estimate std.error statistic p.value
+#>   <chr>  <chr>               <chr>    <dbl>     <dbl>     <dbl>   <dbl>
+#> 1 GOOG   RW(Close ~ drift()) b        0.944     0.705      1.34   0.182
+```
+
+Ljung-Box
+```{r}
+augment(fit) |> features(.innov, ljung_box, lag=10)
+#> # A tibble: 1 × 4
+#>   Symbol .model              lb_stat lb_pvalue
+#>   <chr>  <chr>                 <dbl>     <dbl>
+#> 1 GOOG   RW(Close ~ drift())    7.91     0.637
+```
+
+As with the naïve method, the residuals from the drift method are indistinguishable from a white noise series.
