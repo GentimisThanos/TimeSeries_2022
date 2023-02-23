@@ -26,15 +26,32 @@ gdppc %>%
   autoplot(GDP_per_capita) +
   labs(y = "$US", title = "GDP per capita for Sweden")
 ```
+
 ```{r}
 
 gdppc %>%
   filter(Country == "Bangladesh") %>%
   autoplot(GDP_per_capita) +
   labs(y = "$US", title = "GDP per capita for Bangladesh")
-  
-  
 ```
+  #Train the model
+```{r}
+fit <- gdppc %>% 
+  model(trend_model = TSLM(GDP_per_capita ~ trend())) #Model with a table - mable - prediction for every country in the dataset
+fit
+```
+```{r}
+fit %>% forecast(h = "3 years") #Forecast table - fable
+
+```
+```{r}
+fit %>% 
+  forecast(h = "3 years") %>% 
+  filter(Country == "Sweden") %>% 
+  autoplot(gdppc) +
+  labs(y = "$US", title = "GDP per capita for Sweden")
+```
+  
 
 ```{r}
 # Re-index based on trading days
@@ -74,6 +91,7 @@ TSLM(GDP_per_capita ~ trend()) #Time series linear model
 ```
 
 # Train the model (estimate)
+
 ```{r}
 fit <- gdppc %>%
   model(trend_model = TSLM(GDP_per_capita ~ trend()))
@@ -106,7 +124,7 @@ bricks
 Mean method
 
 ```{r}
-bricks %>% model(MEAN(Bricks))
+bricks %>% model(MEAN(Bricks))%>%forecast(h=4)
 autoplot(bricks)
 ```
 Naïve method
@@ -125,7 +143,7 @@ autoplot(bricks)
 bricks %>% model(RW(Bricks ~ drift()))
 autoplot(bricks)
 ```
-
+# Example: Australian quarterly beer production
 ```{r}
 # Set training data from 1992 to 2006
 train <- aus_production %>%
@@ -266,8 +284,58 @@ tidy(fit)
 augment(fit) %>% features(.innov, ljung_box, lag=10, dof=1)
 
 ```
+# 5.5 Distributional forecasts and prediction intervals
+# Benchmark methods
+```{r}
+google_2015 %>% 
+  model(NAIVE(Close)) %>% 
+  forecast(h = 10) %>% 
+  hilo()
+```
 
 
+```{r}
+google_2015 %>% 
+  model(NAIVE(Close)) %>% 
+  forecast(h = 10) %>% 
+  autoplot(google_2015) +
+  labs(title="Google daily closing stock price", y="$US" )
+```
+```{r}
+fit <- google_2015 %>% 
+  model(NAIVE(Close))
+sim <- fit %>% generate(h = 30, times = 5, bootstrap = TRUE)
+sim
+
+```
+```{r}
+google_2015 %>% 
+  ggplot(aes(x = day)) +
+  geom_line(aes(y = Close)) +
+  geom_line(aes(y = .sim, colour = as.factor(.rep)),
+    data = sim) +
+  labs(title="Google daily closing stock price", y="$US" ) +
+  guides(colour = "none")
+```
+
+```{r}
+fc <- fit %>%  forecast(h = 30, bootstrap = TRUE)
+fc
+```
+```{r}
+autoplot(fc, google_2015) +
+  labs(title="Google daily closing stock price", y="$US" )
+```
+```{r}
+google_2015 %>% 
+  model(NAIVE(Close)) %>% 
+  forecast(h = 10, bootstrap = TRUE, times = 1000) %>% 
+  hilo()
+
+```
+
+
+# Need training data separately? (5.1)
 # How to intentify bias and correlation in time series? What is the difference, because to me it seems like is the same thing.
 # How can we plot Augment?
 
