@@ -82,4 +82,6 @@ classical_decomposition(gas, type = "multiplicative")
 
 --if dont know which one to use (additive or multiplicative), try both and use the one with the smallest remainder
 
--
+example of something with no period but trend is measuring height of grow in a plant bc it can only go up
+
+*try exercise 2 in chapter 4
