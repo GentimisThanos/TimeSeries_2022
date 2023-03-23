@@ -9,6 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(fpp3)
 ```
+<<<<<<< HEAD
+=======
+Some chapter 3 notes:
+additive and multiplicative is bad for data with outliers, better to use STL. but additive and multiplicative are more rigid so have better predictions
+
+Ch 5: time series, model, fit the data, then forecast
+>>>>>>> 3452c5bc780a329afc2463ee241b8b8ff5c13514
 
 # 4.1: Some simple statistics
 
@@ -158,7 +165,48 @@ We can speculate why these series are identified as unusual.
     -The south western corner of Western Australia is unusual because it shows both an increase in holiday tourism in the last few years of data and a high level of seasonality.
 
 
+<<<<<<< HEAD
 
+=======
+# Exercise 2:
+
+```{r}
+library(glue)
+```
+
+
+```{r}
+tourism_features %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+
+```{r}
+holiday<-filter(tourism, Purpose=="Holiday")
+tourism_features2 <- holiday %>%
+  features(Trips, feature_set(pkgs = "feasts"))
+library(glue)
+tourism_features2 %>%
+  select_at(vars(contains("season"), Purpose)) %>%
+  mutate(
+    seasonal_peak_year = seasonal_peak_year +
+      4*(seasonal_peak_year==0),
+    seasonal_trough_year = seasonal_trough_year +
+      4*(seasonal_trough_year==0),
+    seasonal_peak_year = glue("Q{seasonal_peak_year}"),
+    seasonal_trough_year = glue("Q{seasonal_trough_year}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour = Purpose))
+```
+>>>>>>> 3452c5bc780a329afc2463ee241b8b8ff5c13514
 
 
 
